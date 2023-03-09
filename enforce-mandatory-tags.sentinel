@@ -29,6 +29,49 @@ find_resources_with_standard_tags = func(resource_types) {
   return resources
 }
 
+evaluate_attribute = func(r, attribute) {
+
+  # Split the attribute into a list, using "." as the separator
+  attributes = strings.split(attribute, ".")
+
+  # Convert numeric strings to integers for indices
+  if attributes[0] matches "^[0-9]+$" {
+    a = int(attributes[0])
+    # Make sure r is of type list
+    if types.type_of(r) is not "list" {
+      return undefined
+    }
+  } else {
+    a = attributes[0]
+  }
+
+  # Append the current attribute to the resource instance
+  if (types.type_of(r) is "map" and "change" in keys(r)) and
+     (types.type_of(r.change) is "map" and "after" in keys(r.change)) {
+    new_r = r.change.after[a] else null
+  } else {
+    new_r = r[a] else null
+  }
+
+  # Process based on length of attributes
+  # being greater than or equal to 1
+  if length(attributes) > 1 {
+
+    # Strip first element from attributes
+    attributes = attributes[1:length(attributes)]
+    attribute = strings.join(attributes, ".")
+
+    # Make recursive call
+    return evaluate_attribute(new_r, attribute)
+  } else {
+
+    # We reached the end of the attribute and can stop the
+    # recursive calls and return the value of the attribute
+    return new_r
+
+  }
+}
+
 filter_attribute_not_contains_list = func(resources, attr, required, prtmsg) {
   violators = {}
   messages = {}
