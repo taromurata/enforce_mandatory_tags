@@ -3,10 +3,7 @@
 # Sentinel Policyを使って、指定したAWSリソースすべてに必須のタグが付与
 # されていることを確認します。
 
-import "tfconfig-functions" as config
 import "tfplan/v2" as tfplan
-import "tfconfig/v2" as tfconfig
-import "strings"
 import "types"
 
 # 必須のタグを強制するリソースのタイプを指定します。
