@@ -2,6 +2,10 @@ module "tfplan-functions" {
   source = "./utils/tfplan-functions.sentinel"
 }
 
+module "tfconfig-functions" {
+  source = "./utils/tfconfig-functions.sentinel"
+}
+
 module "aws-functions" {
   source = "./utils/aws-functions.sentinel"
 }
