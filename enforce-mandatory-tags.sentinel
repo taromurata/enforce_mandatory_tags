@@ -4,6 +4,7 @@
 # されていることを確認します。
 
 import "tfplan/v2" as tfplan
+import "strings"
 import "types"
 
 # 必須のタグを強制するリソースのタイプを指定します。
