@@ -1,13 +1,13 @@
+# 参考: https://github.com/hashicorp/terraform-guides
+
 # Sentinel Policyを使って、指定したAWSリソースすべてに必須のタグが付与
 # されていることを確認します。
 
-# common-functions/tfplan-functions/tfplan-functions.sentinelをインポートし
-# "plan"というエイリアスをつけます。
-import "tfplan-functions" as plan
-
-# aws-functions/aws-functions.sentinelをインポートし、"aws"というエイリアスを
-# つけます。
-import "aws-functions" as aws
+import "tfconfig-functions" as config
+import "tfplan/v2" as tfplan
+import "tfconfig/v2" as tfconfig
+import "strings"
+import "types"
 
 # 必須のタグを強制するリソースのタイプを指定します。
 # ここでは、aws_instanceリソースに対してのみ、ポリシーを適用します。
@@ -18,14 +18,69 @@ param resource_types default [
 # 必須タグの一覧。
 param mandatory_tags default ["Name", "ttl", "owner", "type"]
 
+
+# リソースを取得するための関数。
+find_resources_with_standard_tags = func(resource_types) {
+  resources = filter tfplan.resource_changes as address, rc {
+    rc.provider_name matches "(.*)aws$" and
+    rc.type in resource_types and
+  	rc.mode is "managed" and
+    (rc.change.actions contains "create" or rc.change.actions contains "update" or
+     rc.change.actions contains "read" or rc.change.actions contains "no-op")
+  }
+
+  return resources
+}
+
+filter_attribute_not_contains_list = func(resources, attr, required, prtmsg) {
+  violators = {}
+  messages = {}
+  for resources as address, rc {
+    # Evaluate the value (v) of the attribute
+    v = evaluate_attribute(rc, attr) else null
+    # Check if the value contains the desired allowed list
+    if v is null or
+       not (types.type_of(v) is "list" or types.type_of(v) is "map") {
+      # Add the resource and a warning message to the violators list
+      message = to_string(address) + " has " + to_string(attr) +
+                " that is missing, null, or is not a map or a list. " + "It should have had these items: " + to_string(required)
+      violators[address] = rc
+      messages[address] = message
+      if prtmsg {
+        print(message)
+      }
+    } else {
+      missing_values = []
+      for required as rv {
+        if v not contains rv {
+          append(missing_values, rv)
+        } // end if
+      } // end for required
+      if length(missing_values) > 0 {
+        # Build warning message when v is a map
+        message = to_string(address) + " has " + to_string(attr) + " " +
+                  to_string(v) + " that is missing the required items " +
+                  to_string(missing_values) + " from the list: " +
+                  to_string(required)
+        # Add the resource and warning message to the violators list
+        violators[address] = rc
+        messages[address] = message
+        if prtmsg {
+          print(message)
+        }
+      } // end length(missing_values)
+    } // end else v not null
+  } // end for
+  return {"resources":violators,"messages":messages}
+}
+
 # planに含まれる、指定されたリソースタイプのAWSインスタンスを取得します
-allAWSResourcesWithStandardTags =
-                          aws.find_resources_with_standard_tags(resource_types)
+allAWSResourcesWithStandardTags = find_resources_with_standard_tags(resource_types)
 
 # ポリシー違反のあるAWS Resourceをフィルタします。
 # 最後の引数をtrueにすると警告メッセージが表示されます。
 violatingAWSResources =
-        plan.filter_attribute_not_contains_list(allAWSResourcesWithStandardTags,
+        filter_attribute_not_contains_list(allAWSResourcesWithStandardTags,
                         "tags", mandatory_tags, true)
 
 # Main rule
