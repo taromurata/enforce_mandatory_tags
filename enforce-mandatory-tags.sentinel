@@ -1,5 +1,6 @@
-# 参考: https://github.com/hashicorp/terraform-guides
+# AWS Resource には、指定されたタグをつける必要があります。
 
+# 参考: https://github.com/hashicorp/terraform-guides
 # Sentinel Policyを使って、指定したAWSリソースすべてに必須のタグが付与
 # されていることを確認します。
 
